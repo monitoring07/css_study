@@ -24,7 +24,7 @@
         // ✅ Three.js 기본 설정
         const scene = new THREE.Scene();    //3d공간 생성
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); //카메라 생성
-        
+
         //렌더러 설정
         const renderer = new THREE.WebGLRenderer({ alpha: true }); //webGL렌더링 활성화 ✅ 알파 : 배경 투명화
         renderer.setSize(window.innerWidth, window.innerHeight);    //렌더링 사이즈설정
