@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js 조명 효과 (블러 & 색상 섞기)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #111;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        // ✅ Three.js 기본 설정
+        const scene = new THREE.Scene();    //3d공간 생성
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); //카메라 생성
+        
+        //렌더러 설정
+        const renderer = new THREE.WebGLRenderer({ alpha: true }); //webGL렌더링 활성화 ✅ 알파 : 배경 투명화
+        renderer.setSize(window.innerWidth, window.innerHeight);    //렌더링 사이즈설정
+        document.body.appendChild(renderer.domElement);
+
+
+        // ✅ GLSL 쉐이더 코드 (블러 + 알파 블렌딩)
+        //버텍스쉐이더 : 3d좌표를 2d좌표로 전환환
+        const vertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+        //프래그먼트쉐이더 : 색상 및 투명도 계산
+        const fragmentShader = `
+            varying vec2 vUv;
+            uniform vec3 color;
+            uniform float intensity;
+
+            void main() {
+                float dist = distance(vUv, vec2(0.5, 0.5));
+                float alpha = smoothstep(0.5, 0.2, dist) * intensity;
+                gl_FragColor = vec4(color, alpha);
+            }
+        `;
+
+        // ✅ 조명 원형 생성 함수 (쉐이더 사용하여 부드러운 색상 블렌딩 적용)
+        function createLight(color) {
+            const geometry = new THREE.PlaneGeometry(10, 10);   //10 x 10 평면생성
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    color: { value: new THREE.Color(color) },
+                    intensity: { value: 0.5 } // ✅ 조명 밝기 조정
+                },
+                vertexShader,
+                fragmentShader,
+                transparent: true,  //투명도 적용, 블러효과과
+                blending: THREE.AdditiveBlending // ✅ 색상 자연스럽게 섞이도록 블렌딩
+            });
+
+            const lightMesh = new THREE.Mesh(geometry, material);   //평면과 쉐이더 결합한 객체생성성
+            scene.add(lightMesh);   //신에 추가가
+            return lightMesh;
+        }
+
+        // ✅ 3개의 조명 생성 (노랑, 빨강, 파랑)
+        const yellowLight = createLight(0xFFC800);
+        const redLight = createLight(0xFF5733);
+        const blueLight = createLight(0x00C8FF);
+
+        // ✅ 카메라 위치 조정
+        camera.position.z = 10; //카메라 z축을 10으로설정
+
+        // ✅ 마우스 애니메이션 설정 (기존 코드 유지)
+        let angle = 0;
+        let time = 0;
+        let targetMouseX = 0;  // ✅ 수정: 목표 마우스 X 좌표
+        let targetMouseY = 0;  // ✅ 수정: 목표 마우스 Y 좌표
+        let currentMouseX = 0; // ✅ 수정: 현재 조명이 향하는 X 좌표
+        let currentMouseY = 0; // ✅ 수정: 현재 조명이 향하는 Y 좌표
+
+        document.addEventListener('mousemove', (e) => {
+            targetMouseX = (e.clientX / window.innerWidth) * 2 - 1; // ✅ 수정: 목표 마우스 좌표 저장
+            targetMouseY = -(e.clientY / window.innerHeight) * 2 + 1; // ✅ 수정: 목표 마우스 좌표 저장
+        });
+
+        function animateLights() {
+            const radius = 2 + Math.sin(time) * 0.3; // ✅ 기존보다 조명 간격 증가
+            const rotationSpeed = 0.0015;
+
+            angle += rotationSpeed;
+            time += 0.01;
+
+            // ✅ 수정: 마우스를 부드럽게 따라오도록 보간(lerp) 적용
+            currentMouseX += (targetMouseX * 4 - currentMouseX) * 0.1;
+            currentMouseY += (targetMouseY * 2 - currentMouseY) * 0.1;
+
+            // ✅ 조명 위치 조정 (부드럽게 마우스를 따라감)
+            yellowLight.position.x = currentMouseX + radius * Math.cos(angle);
+            yellowLight.position.y = currentMouseY + radius * Math.sin(angle);
+
+            redLight.position.x = currentMouseX + radius * Math.cos(angle + (Math.PI * 2 / 3));
+            redLight.position.y = currentMouseY + radius * Math.sin(angle + (Math.PI * 2 / 3));
+
+            blueLight.position.x = currentMouseX + radius * Math.cos(angle + (Math.PI * 4 / 3));
+            blueLight.position.y = currentMouseY + radius * Math.sin(angle + (Math.PI * 4 / 3));
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(animateLights);
+        }
+
+        animateLights();
+
+        // ✅ 창 크기 조정 이벤트 (반응형 지원)
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+    </script>
+</body>
+
+</html>
